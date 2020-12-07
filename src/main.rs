@@ -30,7 +30,7 @@ fn main() {
 				.required(true)
 				.takes_value(true)
 				.value_name("URI:PORT")
-				.about("The nodes WS address"),
+				.about("The nodes WS(S) address"),
 		)
 		.arg(
 			Arg::new("log")
@@ -112,12 +112,16 @@ fn run(ws: &str, log: u8) {
 						votes_map.entry(id).and_modify(|(_, votes)| *votes += 1);
 					}
 
+					let mut voted = 0;
+
 					for (_, (stash, votes)) in votes_map.iter() {
-						let print = || {
+						let mut print = || {
 							println!(
 								"{}{}{}{:4}{}",
 								"validator: ".magenta(),
 								if *votes > 0 {
+									voted += 1;
+
 									stash.to_string().green()
 								} else {
 									stash.to_string().red()
@@ -138,8 +142,9 @@ fn run(ws: &str, log: u8) {
 
 					println!("{}{}", "round    : ".magenta(), round.to_string().cyan());
 					println!(
-						"{}{}",
-						"total    : ".magenta(),
+						"{}{}/{}",
+						"votes    : ".magenta(),
+						voted.to_string().cyan(),
 						votes_map.len().to_string().cyan()
 					);
 					println!(
