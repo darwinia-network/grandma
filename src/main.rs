@@ -56,6 +56,8 @@ fn main() {
 fn run(ws: &str, log: u8) {
 	let ws = if ws.starts_with("ws://") {
 		ws.to_owned()
+	} else if ws.starts_with("wss://") {
+		ws.to_owned()
 	} else {
 		format!("ws://{}", ws)
 	};
