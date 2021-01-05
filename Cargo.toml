@@ -1,8 +1,13 @@
 [package]
-authors = ["Xavier Lau <c.estlavie@icloud.com>"]
-edition = "2018"
-name    = "grandma"
-version = "0.2.0"
+authors     = ["Xavier Lau <c.estlavie@icloud.com>"]
+description = "Grandma catches bad Grandpa"
+edition     = "2018"
+homepage    = "https://darwinia.network"
+license     = "GPL-3.0"
+name        = "grandma"
+readme      = "README.md"
+repository  = "https://github.com/darwinia-network/grandma"
+version     = "0.2.0"
 
 [dependencies]
 array-bytes        = { version = "0.3.0" }
