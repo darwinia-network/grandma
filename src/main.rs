@@ -9,11 +9,13 @@ use std::{
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use colored::Colorize;
 use parity_scale_codec::Decode;
-use subrpcer::{grandpa, state};
-use tungstenite::{connect, Message, WebSocket};
 use serde_json::Value;
+use subrpcer::{grandpa, state, system};
+use tungstenite::{connect, Message, WebSocket};
 // --- grandma ---
 use primitives::*;
+
+static mut SS58_PREFIX: u8 = 42;
 
 fn main() {
 	let app = App::new(crate_name!())
@@ -59,7 +61,9 @@ fn run(uri: &str, log: u8) {
 	};
 	let (mut ws, _) = connect(uri).unwrap();
 	let spec_name = get_spec_name(&mut ws);
+	let ss58_prefix = get_ss58_prefix(&mut ws);
 
+	set_ss58_prefix(ss58_prefix);
 	subscribe(&mut ws);
 
 	println!("{} {}", "Connected to".green(), spec_name.green());
@@ -150,12 +154,34 @@ where
 	))
 	.unwrap();
 
-	if let Ok(rpc_result) =
-		serde_json::from_slice::<Value>(&ws.read_message().unwrap().into_data())
+	if let Ok(rpc_result) = serde_json::from_slice::<Value>(&ws.read_message().unwrap().into_data())
 	{
 		rpc_result["result"]["specName"].as_str().unwrap().into()
 	} else {
 		"Null".into()
+	}
+}
+
+fn get_ss58_prefix<Stream>(ws: &mut WebSocket<Stream>) -> u8
+where
+	Stream: Read + Write,
+{
+	ws.write_message(Message::from(
+		serde_json::to_vec(&system::properties()).unwrap(),
+	))
+	.unwrap();
+
+	if let Ok(rpc_result) = serde_json::from_slice::<Value>(&ws.read_message().unwrap().into_data())
+	{
+		rpc_result["result"]["ss58Format"].as_u64().unwrap() as _
+	} else {
+		42
+	}
+}
+
+fn set_ss58_prefix(ss58_prefix: u8) {
+	unsafe {
+		SS58_PREFIX = ss58_prefix;
 	}
 }
 

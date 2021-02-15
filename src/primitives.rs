@@ -4,6 +4,8 @@ use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use parity_scale_codec::Decode;
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
+// --- grandma ---
+use crate::SS58_PREFIX;
 
 pub type BlockNumber = u32;
 pub type QueuedKeys = Vec<(AccountId, SessionKeys)>;
@@ -68,16 +70,18 @@ impl Display for Hash {
 pub struct AccountId([u8; 32]);
 impl Debug for AccountId {
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
-		write!(
-			f,
-			"AccountId({})",
-			subcryptor::into_ss58_address(&self.0, 18)
-		)
+		unsafe {
+			write!(
+				f,
+				"AccountId({})",
+				subcryptor::into_ss58_address(&self.0, SS58_PREFIX)
+			)
+		}
 	}
 }
 impl Display for AccountId {
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
-		write!(f, "{}", subcryptor::into_ss58_address(&self.0, 18))
+		unsafe { write!(f, "{}", subcryptor::into_ss58_address(&self.0, SS58_PREFIX)) }
 	}
 }
 
