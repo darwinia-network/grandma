@@ -2,7 +2,7 @@
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 // --- crates.io ---
 use parity_scale_codec::Decode;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer};
 use serde_json::Value;
 // --- grandma ---
 use crate::SS58_PREFIX;
@@ -45,6 +45,28 @@ impl StateStoreRpc {
 	}
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoundState {
+	pub round: u32,
+	pub total_weight: u32,
+	pub threshold_weight: u32,
+	pub prevotes: Prevotes,
+	pub precommits: Precommits,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Prevotes {
+	pub current_weight: u32,
+	pub missing: Vec<AccountId>,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Precommits {
+	pub current_weight: u32,
+	pub missing: Vec<AccountId>,
+}
+
 #[derive(Debug, Decode)]
 pub struct SessionKeys {
 	pub babe: AccountId,
@@ -57,12 +79,12 @@ pub struct SessionKeys {
 pub struct Hash(pub [u8; 32]);
 impl Debug for Hash {
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
-		write!(f, "Hash({})", array_bytes::hex_str("0x", &self.0))
+		write!(f, "Hash({})", array_bytes::bytes2hex("0x", &self.0))
 	}
 }
 impl Display for Hash {
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
-		write!(f, "{}", array_bytes::hex_str("0x", &self.0))
+		write!(f, "{}", array_bytes::bytes2hex("0x", &self.0))
 	}
 }
 
@@ -82,6 +104,17 @@ impl Debug for AccountId {
 impl Display for AccountId {
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
 		unsafe { write!(f, "{}", subcryptor::into_ss58_address(&self.0, SS58_PREFIX)) }
+	}
+}
+impl<'de> Deserialize<'de> for AccountId {
+	fn deserialize<D>(deserializer: D) -> Result<AccountId, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		Ok(AccountId(array_bytes::dyn2array!(
+			subcryptor::into_public_key(String::deserialize(deserializer)?),
+			32
+		)))
 	}
 }
 
