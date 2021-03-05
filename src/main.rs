@@ -255,7 +255,7 @@ where
 	);
 
 	let indent1 = " ".repeat(13);
-	let indent2 = " ".repeat(23);
+	let indent2 = " ".repeat(24);
 
 	println!("{:>17}", "prevotes:".magenta());
 	println!(
