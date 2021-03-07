@@ -10,10 +10,13 @@ use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg
 use colored::Colorize;
 use parity_scale_codec::Decode;
 use serde_json::Value;
+use subgrandpa::{Precommits, Prevotes, RoundState as GenericRoundState};
 use subrpcer::{grandpa, state, system};
 use tungstenite::{connect, Message, WebSocket};
 // --- grandma ---
 use primitives::*;
+
+type RoundState = GenericRoundState<AccountId>;
 
 static mut SS58_PREFIX: u8 = 42;
 
@@ -283,12 +286,21 @@ where
 	);
 	println!("{}{:>15}", indent1, "missing:".magenta());
 	for missing_precommit in current_precommits_missing {
-		println!(
-			"{}{} {}",
-			indent2,
-			"stash:".magenta(),
-			queued_keys[&missing_precommit].to_string().cyan()
-		);
+		if let Some(queued_key) = queued_keys.get(&missing_precommit) {
+			println!(
+				"{}{} {}",
+				indent2,
+				"stash:".magenta(),
+				queued_key.to_string().cyan()
+			);
+		} else {
+			println!(
+				"{}{} {}",
+				" ".repeat(13),
+				"can't find stash:".magenta(),
+				missing_precommit.to_string().red()
+			);
+		}
 	}
 }
 

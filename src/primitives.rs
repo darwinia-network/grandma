@@ -4,14 +4,17 @@ use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use parity_scale_codec::Decode;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer};
 use serde_json::Value;
+use subgrandpa::{
+	GrandpaJustification as GenericGrandpaJustification, SignedPrecommit as GenericSignedPrecommit,
+};
 // --- grandma ---
 use crate::SS58_PREFIX;
 
 pub type BlockNumber = u32;
 pub type QueuedKeys = Vec<(AccountId, SessionKeys)>;
 pub type GrandpaJustification =
-	subgrandpa::GrandpaJustification<Hash, BlockNumber, Signature, AccountId>;
-pub type SignedPrecommit = subgrandpa::SignedPrecommit<Hash, BlockNumber, Signature, AccountId>;
+	GenericGrandpaJustification<Hash, BlockNumber, Signature, AccountId>;
+pub type SignedPrecommit = GenericSignedPrecommit<Hash, BlockNumber, Signature, AccountId>;
 
 #[derive(Debug, Deserialize)]
 pub struct RpcResult {
@@ -43,28 +46,6 @@ impl StateStoreRpc {
 	pub fn item_of(&self, i: usize) -> (&str, &str) {
 		(self.key_of(i), self.value_of(i))
 	}
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RoundState {
-	pub round: u32,
-	pub total_weight: u32,
-	pub threshold_weight: u32,
-	pub prevotes: Prevotes,
-	pub precommits: Precommits,
-}
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Prevotes {
-	pub current_weight: u32,
-	pub missing: Vec<AccountId>,
-}
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Precommits {
-	pub current_weight: u32,
-	pub missing: Vec<AccountId>,
 }
 
 #[derive(Debug, Decode)]
