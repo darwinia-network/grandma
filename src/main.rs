@@ -1,4 +1,5 @@
 mod primitives;
+mod session_keys;
 
 // --- std ---
 use std::{
@@ -10,13 +11,12 @@ use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg
 use colored::Colorize;
 use parity_scale_codec::Decode;
 use serde_json::Value;
-use subgrandpa::{Precommits, Prevotes, RoundState as GenericRoundState};
+use subgrandpa::{Precommits, Prevotes};
 use subrpcer::{grandpa, state, system};
 use tungstenite::{connect, Message, WebSocket};
 // --- grandma ---
 use primitives::*;
-
-type RoundState = GenericRoundState<AccountId>;
+use session_keys::*;
 
 static mut SS58_PREFIX: u8 = 42;
 
@@ -71,15 +71,16 @@ fn main() {
 	println!("{} {}", "Connected to".green(), spec_name.green());
 
 	if app_args.subcommand_matches("round-state").is_some() {
-		fetch_round_state(&mut ws);
+		fetch_round_state::<_, DarwiniaSessionKeys>(&mut ws);
 	} else {
-		watch(&mut ws, log);
+		watch::<_, DarwiniaSessionKeys>(&mut ws, log);
 	}
 }
 
-fn watch<Stream>(ws: &mut WebSocket<Stream>, log: u8)
+fn watch<S, SK>(ws: &mut WebSocket<S>, log: u8)
 where
-	Stream: Read + Write,
+	S: Read + Write,
+	SK: SessionKeys,
 {
 	let mut votes_map = HashMap::new();
 
@@ -95,13 +96,13 @@ where
 
 					let state_storage_rpc = result.into_inner::<StateStoreRpc>();
 					let session_queued_keys = state_storage_rpc.item_of(0).1;
-					let queued_keys = QueuedKeys::decode(&mut &*array_bytes::hex2bytes_unchecked(
-						session_queued_keys,
-					))
+					let queued_keys = <QueuedKeys<SK>>::decode(
+						&mut &*array_bytes::hex2bytes_unchecked(session_queued_keys),
+					)
 					.unwrap();
 
-					for (stash, SessionKeys { grandpa, .. }) in queued_keys {
-						votes_map.insert(grandpa, (stash, 0u32));
+					for (stash, session_keys) in queued_keys {
+						votes_map.insert(session_keys.grandpa().to_owned(), (stash, 0u32));
 					}
 				}
 				"grandpa_justifications" => {
@@ -119,7 +120,7 @@ where
 					for (_, (stash, votes)) in votes_map.iter() {
 						let mut print = || {
 							println!(
-								"{} {} {}{:4} {}",
+								"{} {:48} {}{:4} {}",
 								"validator:".magenta(),
 								if *votes > 0 {
 									voted += 1;
@@ -161,9 +162,9 @@ where
 	}
 }
 
-fn get_spec_name<Stream>(ws: &mut WebSocket<Stream>) -> String
+fn get_spec_name<S>(ws: &mut WebSocket<S>) -> String
 where
-	Stream: Read + Write,
+	S: Read + Write,
 {
 	ws.write_message(Message::from(
 		serde_json::to_vec(&state::get_runtime_version()).unwrap(),
@@ -177,9 +178,9 @@ where
 	}
 }
 
-fn get_ss58_prefix<Stream>(ws: &mut WebSocket<Stream>) -> u8
+fn get_ss58_prefix<S>(ws: &mut WebSocket<S>) -> u8
 where
-	Stream: Read + Write,
+	S: Read + Write,
 {
 	ws.write_message(Message::from(
 		serde_json::to_vec(&system::properties()).unwrap(),
@@ -199,9 +200,10 @@ fn set_ss58_prefix(ss58_prefix: u8) {
 	}
 }
 
-fn fetch_round_state<Stream>(ws: &mut WebSocket<Stream>)
+fn fetch_round_state<S, SK>(ws: &mut WebSocket<S>)
 where
-	Stream: Read + Write,
+	S: Read + Write,
+	SK: SessionKeys,
 {
 	ws.write_message(Message::from(
 		serde_json::to_vec(&state::get_storage(
@@ -215,12 +217,12 @@ where
 	let value = serde_json::from_slice::<Value>(&ws.read_message().unwrap().into_data()).unwrap()
 		["result"]
 		.take();
-	let queued_keys = QueuedKeys::decode(&mut &*array_bytes::hex2bytes_unchecked(
+	let queued_keys = <QueuedKeys<SK>>::decode(&mut &*array_bytes::hex2bytes_unchecked(
 		value.as_str().unwrap(),
 	))
 	.unwrap()
 	.into_iter()
-	.map(|(stash, SessionKeys { grandpa, .. })| (grandpa, stash))
+	.map(|(stash, session_keys)| (session_keys.grandpa().to_owned(), stash))
 	.collect::<HashMap<AccountId, AccountId>>();
 
 	ws.write_message(Message::from(
@@ -304,9 +306,9 @@ where
 	}
 }
 
-fn subscribe_justifications<Stream>(ws: &mut WebSocket<Stream>)
+fn subscribe_justifications<S>(ws: &mut WebSocket<S>)
 where
-	Stream: Read + Write,
+	S: Read + Write,
 {
 	ws.write_message(Message::from(
 		serde_json::to_vec(&state::subscribe_storage(vec![array_bytes::bytes2hex(

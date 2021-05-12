@@ -5,16 +5,17 @@ use parity_scale_codec::Decode;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer};
 use serde_json::Value;
 use subgrandpa::{
-	GrandpaJustification as GenericGrandpaJustification, SignedPrecommit as GenericSignedPrecommit,
+	GrandpaJustification as GenericGrandpaJustification, RoundState as GenericRoundState,
+	SignedPrecommit as GenericSignedPrecommit,
 };
 // --- grandma ---
 use crate::SS58_PREFIX;
 
 pub type BlockNumber = u32;
-pub type QueuedKeys = Vec<(AccountId, SessionKeys)>;
 pub type GrandpaJustification =
 	GenericGrandpaJustification<Hash, BlockNumber, Signature, AccountId>;
 pub type SignedPrecommit = GenericSignedPrecommit<Hash, BlockNumber, Signature, AccountId>;
+pub type RoundState = GenericRoundState<AccountId>;
 
 #[derive(Debug, Deserialize)]
 pub struct RpcResult {
@@ -48,14 +49,6 @@ impl StateStoreRpc {
 	}
 }
 
-#[derive(Debug, Decode)]
-pub struct SessionKeys {
-	pub babe: AccountId,
-	pub grandpa: AccountId,
-	pub im_online: AccountId,
-	pub authority_discovery: AccountId,
-}
-
 #[derive(Decode)]
 pub struct Hash(pub [u8; 32]);
 impl Debug for Hash {
@@ -69,7 +62,7 @@ impl Display for Hash {
 	}
 }
 
-#[derive(Decode, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Decode)]
 pub struct AccountId([u8; 32]);
 impl Debug for AccountId {
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
